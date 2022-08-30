@@ -12,14 +12,9 @@ size_t Sha::SHA1(const uint8_t *input, size_t inLength, std::string &sDigest)
     // use openssl SHA1
     ::SHA1(input, inLength, digest);
     
-    char mdString[SHA_DIGEST_LENGTH*2+1] = {'\0'};
-    for(int i = 0; i < SHA_DIGEST_LENGTH; i++) {
-        sprintf(&mdString[i*2], "%02x", (unsigned int)digest[i]);
-    }
-    
-    sDigest = mdString;
+    sDigest = std::string((char *)digest, SHA_DIGEST_LENGTH);
 
-    return SHA_DIGEST_LENGTH*2;
+    return SHA_DIGEST_LENGTH;
 }
 
 size_t Sha::hmacSHA1(const void *key, int keyLen, const uint8_t *input, size_t inLength, std::string &sDigest)
@@ -28,13 +23,9 @@ size_t Sha::hmacSHA1(const void *key, int keyLen, const uint8_t *input, size_t i
     unsigned int digestLen = 0;
     HMAC(EVP_sha1(), key, keyLen, input, inLength, digest, &digestLen);
 
-    char mdString[SHA_DIGEST_LENGTH*2+1] = {'\0'};
-    for(int i = 0; i < SHA_DIGEST_LENGTH; i++)
-        sprintf(&mdString[i*2], "%02x", (unsigned int)digest[i]);
-
-    sDigest = mdString;
+    sDigest = std::string((char *)digest, digestLen);
     
-    return SHA_DIGEST_LENGTH*2;
+    return SHA_DIGEST_LENGTH;
 }
 
 size_t Sha::SHA256(const uint8_t *input, size_t inLength, std::string &sDigest)
@@ -43,14 +34,9 @@ size_t Sha::SHA256(const uint8_t *input, size_t inLength, std::string &sDigest)
     // use openssl SHA256
     ::SHA256(input, inLength, digest);
     
-    char mdString[SHA256_DIGEST_LENGTH*2+1] = {'\0'};
-    for(int i = 0; i < SHA256_DIGEST_LENGTH; i++) {
-        sprintf(&mdString[i*2], "%02x", (unsigned int)digest[i]);
-    }
-    
-    sDigest = mdString;
+    sDigest = std::string((char *)digest, SHA256_DIGEST_LENGTH);
 
-    return SHA256_DIGEST_LENGTH*2;
+    return SHA256_DIGEST_LENGTH;
 }
 
 size_t Sha::hmacSHA256(const void *key, int keyLen, const uint8_t *input, size_t inLength, std::string &sDigest)
@@ -59,11 +45,18 @@ size_t Sha::hmacSHA256(const void *key, int keyLen, const uint8_t *input, size_t
     unsigned int digestLen = 0;
     HMAC(EVP_sha256(), key, keyLen, input, inLength, digest, &digestLen);
 
-    char mdString[SHA256_DIGEST_LENGTH*2+1] = {'\0'};
-    for(int i = 0; i < SHA256_DIGEST_LENGTH; i++)
-        sprintf(&mdString[i*2], "%02x", (unsigned int)digest[i]);
+    sDigest = std::string((char *)digest, SHA256_DIGEST_LENGTH);
 
-    sDigest = mdString;
+    return SHA256_DIGEST_LENGTH;
+}
+
+std::string Sha::EncodeToHex(const uint8_t *input, size_t inLength)
+{
+    // binary to hex, It is used to determine whether it is correct. 
+    char mdString[EVP_MAX_MD_SIZE + 1] = {'\0'}; // sprintf会在buffer尾部写入一个'\0'字符, 所以长度需要+1处理
+    for(int i = 0; i < inLength; i++) {
+        sprintf(&mdString[i*2], "%02x", input[i]);
+    }
     
-    return SHA256_DIGEST_LENGTH*2;
+    return std::string(mdString, inLength * 2);
 }

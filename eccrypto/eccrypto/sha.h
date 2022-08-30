@@ -44,6 +44,15 @@ public:
     */
     static size_t SHA256(const uint8_t *input, size_t inLength, std::string &sDigest);
     static size_t hmacSHA256(const void *key, int keyLen, const uint8_t *input, size_t inLength, std::string &sDigest);
+
+    
+    /**
+     * @brief           sha哈希值二进制转换为十六进制
+     * @param input     输入字符串指针
+     * @param inLength  输入字符串长度
+     * @return          16进制可打印字符串
+    */
+    static std::string EncodeToHex(const uint8_t *input, size_t inLength);
 };
 
 #endif // _SHA1_H_

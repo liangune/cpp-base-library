@@ -34,19 +34,20 @@ int main(int argc, char* argv[])
 
     std::string strSha1, strHmacSha1, strSha256, strHmacSha256;
     uint32_t sha1Size = Sha::SHA1((uint8_t *)strTemp.c_str(), strTemp.length(), strSha1); 
-    std::cout << "sha1 size: " << sha1Size << " sha1: " << strSha1 << " size: " << strSha1.length() << endl;
+    std::cout << "sha1 size: " << sha1Size << " sha1: " << Sha::EncodeToHex((uint8_t *)strSha1.c_str(), sha1Size) << " size: " << strSha1.length() << endl;
 
     uint32_t sha256Size = Sha::SHA256((uint8_t *)strTemp.c_str(), strTemp.length(), strSha256); 
-    std::cout << "sha256 size: " << sha256Size << " sha256: " << strSha256 << " size: " << strSha256.length() << endl;
+    std::cout << "sha256 size: " << sha256Size << " sha256: " << Sha::EncodeToHex((uint8_t *)strSha256.c_str(), sha256Size) << " size: " << strSha256.length() << endl;
 
     std::string strShaKey = "abcd";
     uint32_t hmacSha1Size = Sha::hmacSHA1(strShaKey.c_str(), strShaKey.size(), (uint8_t *)strTemp.c_str(), strTemp.length(), strHmacSha1); 
-    std::cout << "hmac sha1 size: " << hmacSha1Size << " hmac sha1: " << strHmacSha1 << " size: " << strHmacSha1.length() << endl;
+    std::cout << "hmac sha1 size: " << hmacSha1Size << " hmac sha1: " << Sha::EncodeToHex((uint8_t *)strHmacSha1.c_str(), hmacSha1Size) << " size: " << strHmacSha1.length() << endl;
 
-    uint32_t hmacSha256Size = Sha::hmacSHA256(strShaKey.c_str(), strShaKey.size(), (uint8_t *)strTemp.c_str(), strTemp.length(), strHmacSha256); 
-    std::cout << "hmac sha256 size: " << hmacSha256Size << " hmac sha256: " << strHmacSha256 << " size: " << strHmacSha256.length() << endl;
+    uint32_t hmacSha256Size = Sha::hmacSHA256(strShaKey.c_str(), strShaKey.size(), (uint8_t *)strTemp.c_str(), strTemp.length(), strHmacSha256);
+    std::cout << "hmac sha256 size: " << hmacSha256Size << " hmac sha256: " << Sha::EncodeToHex((uint8_t *)strHmacSha256.c_str(), hmacSha256Size) << " size: " << strHmacSha256.length() << endl;
     
-    
+    std::cout << "hmac sha256 1: " << strHmacSha256 << std::endl;
+
     std::string aesKey = "1234567891234567";
     char p[64] = "123testgosuncn";
     uint8_t pszAesSrc[64] = {0};
