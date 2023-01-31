@@ -22,7 +22,7 @@ ARCHIVES =
 LIBS    = -lpthread -lm
 INCDIRS = -I./src
 LIBDIRS = -L/usr/lib64 -L/usr/local/lib64
-OUTDIR ?= $(COMPONENT)/lib/linux/x64/$(BUILD_LIB_TYPE)
+OUTDIR ?= $(COMPONENT)/lib/linux/x64/$(BUILD_LIB_TYPE)/zlog
 OUTDIR_INCLUDE ?= $(COMPONENT)/include/zlog/$(notdir $(CURDIR))
 LIBDIR ?= .
 CXX_STANDARD = -std=c++11 

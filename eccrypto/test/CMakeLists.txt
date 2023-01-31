@@ -61,7 +61,7 @@ set(COMPONENT ${CMAKE_CURRENT_SOURCE_DIR}/../../../Depend)
 include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${COMPONENT}/include
-	${COMPONENT}/include/openssl/${PLATFORM}
+	${COMPONENT}/include/openssl-1_1/${PLATFORM}
 )
 
 # 子目录
@@ -96,7 +96,7 @@ set(LINK_LIBS_DIR ${COMPONENT}/lib/${PLATFORM}/${ARCHITECTURE}/dynamic)
 if(MSVC)
     # 动态库
     set(LINK_LIBS
-        ${LINK_LIBS_DIR}/openssl/libeay32.lib ${LINK_LIBS_DIR}/openssl/ssleay32.lib ${LINK_LIBS_DIR}/eccrypto/eccrypto.lib 
+        ${LINK_LIBS_DIR}/eccrypto/eccrypto.lib 
     )
 
     # 静态库
@@ -106,7 +106,7 @@ if(MSVC)
 elseif(UNIX)
     # 动态库
     set(LINK_LIBS
-        ${LINK_LIBS_DIR}/libssl.so ${LINK_LIBS_DIR}/libcrypto.so ${LINK_LIBS_DIR}/eccrypto/eccrypto.so
+        ${LINK_LIBS_DIR}/eccrypto/eccrypto.so
     )
 
     # 静态库

@@ -66,7 +66,7 @@ set(COMPONENT ${CMAKE_CURRENT_SOURCE_DIR}/../../../Depend)
 # include_sub_directories_recursively(${CMAKE_CURRENT_SOURCE_DIR})
 include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}
-	${COMPONENT}/include/openssl/${PLATFORM}
+	${COMPONENT}/include/openssl-1_1/${PLATFORM}
 )
 
 # 子目录
@@ -107,7 +107,8 @@ set(LINK_LIBS_DIR ${COMPONENT}/lib/${PLATFORM}/${ARCHITECTURE}/dynamic)
 if(MSVC)
     # 动态库
     set(LINK_LIBS
-        ${LINK_LIBS_DIR}/openssl/libeay32.lib ${LINK_LIBS_DIR}/openssl/ssleay32.lib
+        ${LINK_LIBS_DIR}/openssl-1_1/libcrypto.lib 
+        ${LINK_LIBS_DIR}/openssl-1_1/libssl.lib
     )
 
     # 静态库
@@ -117,7 +118,8 @@ if(MSVC)
 elseif(UNIX)
     # 动态库
     set(LINK_LIBS
-        ${LINK_LIBS_DIR}/libssl.so ${LINK_LIBS_DIR}/libcrypto.so
+        ${LINK_LIBS_DIR}/openssl-1_1/libcrypto.so.1.1
+        ${LINK_LIBS_DIR}/openssl-1_1/libssl.so.1.1
     )
 
     # 静态库
