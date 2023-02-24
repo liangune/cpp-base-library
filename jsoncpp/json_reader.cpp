@@ -1837,4 +1837,28 @@ std::istream& operator>>(std::istream& sin, Value& root) {
   return sin;
 }
 
+bool parseFromString(const std::string &document, Value& root)
+{
+  if(document.empty()){
+    return true;
+  }
+  
+  CharReaderBuilder b;
+  CharReaderPtr const reader(b.newCharReader());
+  if(NULL == reader.get()) {
+    return false;
+  }
+  char const* begin = document.data();
+  char const* end = begin + document.size();
+
+  std::string errs;
+  bool ok = reader->parse(begin, end, &root, &errs);
+
+  if (!ok) {
+    fprintf(stderr, "Error from reader: %s", errs.c_str());
+    //throwRuntimeError("reader error");
+  }
+  return ok;
+}
+
 } // namespace Json

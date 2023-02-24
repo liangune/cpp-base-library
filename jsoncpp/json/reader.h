@@ -351,6 +351,8 @@ bool JSON_API parseFromStream(
 */
 JSON_API std::istream& operator>>(std::istream&, Value&);
 
+// add by our, threads safe, use parseFromString instead of reader's parse
+bool JSON_API parseFromString(const std::string &document, Value& root);
 } // namespace Json
 
 #if defined(JSONCPP_DISABLE_DLL_INTERFACE_WARNING)

@@ -11,6 +11,8 @@
 #include <stdio.h>
 //#include <jsoncpp/value.h>
 //#include <jsoncpp/reader.h>
+#include "eccrypto/des.h"
+#include "eccrypto/pkcs.h"
 
 using namespace std;
 
@@ -32,6 +34,7 @@ int main(int argc, char* argv[])
     Md5::hash((uint8_t *)strTemp.c_str(), strTemp.length(), strMd5, true);
     std::cout << "md5: " << strMd5 << endl;
 
+    // sha
     std::string strSha1, strHmacSha1, strSha256, strHmacSha256;
     uint32_t sha1Size = Sha::SHA1((uint8_t *)strTemp.c_str(), strTemp.length(), strSha1); 
     std::cout << "sha1 size: " << sha1Size << " sha1: " << Sha::EncodeToHex((uint8_t *)strSha1.c_str(), sha1Size) << " size: " << strSha1.length() << endl;
@@ -48,23 +51,24 @@ int main(int argc, char* argv[])
     
     std::cout << "hmac sha256 1: " << strHmacSha256 << std::endl;
 
+    // aes
     std::string aesKey = "1234567891234567";
     char p[64] = "123testgosuncn";
     uint8_t pszAesSrc[64] = {0};
     memcpy(pszAesSrc, p, strlen(p));
 
     uint8_t aesBuf[64+16+1] = {0};
-    Aes::aes128_ecb_encrypt(pszAesSrc, (uint8_t *)aesKey.c_str(), aesBuf);
+    int aseEcbEnLen = Aes::aes128_ecb_encrypt(aesBuf, pszAesSrc, 64, (uint8_t *)aesKey.c_str());
     std::cout << "aesBuf: " << std::string((char *)aesBuf) << std::endl;
 
-    std::string hexEncode = Hex::encodeToString((char *)aesBuf);
+    std::string hexEncode = Hex::encodeToString((char *)aesBuf, aseEcbEnLen);
     std::cout << "aesBuf hexEncode: " << hexEncode << std::endl;
-    std::string hexDecode = Hex::decodeToString(hexEncode.c_str());
+    std::string hexDecode = Hex::decodeToString(hexEncode.c_str(), hexEncode.size());
     std::cout << "aesBuf hexDecode: " << hexDecode << std::endl;
 
     int ecbDecodeLen = strlen((char *)aesBuf);
     uint8_t aesDecodeBuf[64];
-    Aes::aes128_ecb_decrypt(aesBuf, (uint8_t *)aesKey.c_str(), aesDecodeBuf);
+    Aes::aes128_ecb_decrypt(aesDecodeBuf, aesBuf, ecbDecodeLen, (uint8_t *)aesKey.c_str());
     
     std::cout << "ecbDecodeLen: " << ecbDecodeLen << std::endl;
 
@@ -123,4 +127,92 @@ int main(int argc, char* argv[])
     std::cout << "mac: " << obj["mac"].asString() << std::endl;
     */
     //cin.get(); 
+
+    // des
+    std::string sDesSrc = "12345678";
+    const char *pDesKey = "abcdefgh";
+    const char *pDesIv = "iv999999";
+
+    int nDesSize = sDesSrc.size();
+
+    std::cout << "===>>>DES Size:" << nDesSize << std::endl;
+    // des ECB
+    char * desECBEnDst = (char *)malloc(nDesSize + DES_BLOCK_SIZE);
+    memset(desECBEnDst, 0, nDesSize + DES_BLOCK_SIZE);
+    int desECBEnLen = Des::des64_ecb_encrypt_padding((uint8_t *)desECBEnDst, (uint8_t *)sDesSrc.c_str(), nDesSize, (uint8_t *)pDesKey);
+    std::cout << "desECBEnLen: " << desECBEnLen << std::endl;
+    std::string desECBHexEncode = Hex::encodeToString((char *)desECBEnDst, desECBEnLen);
+    //std::string sDesECBEnDst(desECBEnDst, desECBEnLen);
+    std::cout << "des64_ecb_encrypt_padding: " << desECBHexEncode.size() << " " << desECBHexEncode << std::endl; 
+
+    char * desECBDeDst = (char *)malloc(desECBEnLen);
+    memset(desECBDeDst, 0, desECBEnLen);
+    int desECBDecodeLen = Des::des64_ecb_decrypt_padding((uint8_t *)desECBDeDst, (uint8_t *)desECBEnDst, desECBEnLen, (uint8_t *)pDesKey);
+    std::cout << "desECBDecodeLen: " << desECBDecodeLen << std::endl;
+    std::string sDesECBDeDst(desECBDeDst, desECBDecodeLen);
+    std::cout << "des64_ecb_decrypt_padding: " << sDesECBDeDst.size() << " " << sDesECBDeDst << "tail" << std::endl;
+
+    // des CBC
+    char * desCBCEnDst = (char *)malloc(nDesSize + DES_BLOCK_SIZE);
+    memset(desCBCEnDst, 0, nDesSize + DES_BLOCK_SIZE);
+
+    //int desCBCEnLen = Des::des64_cbc_encrypt_padding((uint8_t *)desCBCEnDst, (uint8_t *)sDesSrc.c_str(), nDesSize, (uint8_t *)pDesKey, (uint8_t *)pDesIv);
+    int desCBCEnLen = Des::des64_cbc_encrypt((uint8_t *)desCBCEnDst, (uint8_t *)sDesSrc.c_str(), nDesSize, (uint8_t *)pDesKey, (uint8_t *)pDesIv);
+    std::cout << "desCBCEnLen: " << desCBCEnLen << std::endl;
+    std::string desHexEncode = Hex::encodeToString((char *)desCBCEnDst, desCBCEnLen);
+    std::cout << "des64_cbc_encrypt_padding: " << desHexEncode.size() << " " << desHexEncode << std::endl;
+
+    char * desCBCDeDst = (char *)malloc(desCBCEnLen);
+    memset(desCBCDeDst, 0, desCBCEnLen);
+    
+    //int desCBCDecodeLen = Des::des64_cbc_decrypt_padding((uint8_t *)desCBCDeDst, (uint8_t *)desCBCEnDst, desCBCEnLen, (uint8_t *)pDesKey, (uint8_t *)pDesIv);
+    int desCBCDecodeLen = Des::des64_cbc_decrypt((uint8_t *)desCBCDeDst, (uint8_t *)desCBCEnDst, desCBCEnLen, (uint8_t *)pDesKey, (uint8_t *)pDesIv);
+    std::cout << "desCBCDecodeLen: " << desCBCDecodeLen << std::endl;
+    std::string sDesCBCDeDst(desCBCDeDst, desCBCDecodeLen);
+    std::cout << "des64_cbc_decrypt_padding: " << sDesCBCDeDst.size() << " " << sDesCBCDeDst << "tail" << std::endl;
+
+    // TEST 
+    std::string sTDesCBCSrc = "[{\"FACE_ID\":\"test-faceId\",\"IMAGE_ID\":\"40e88e3f-391c-474e-ab09-90f67e016171\",\"FACE_URL\":\"http://rzx168:8877/group1/M00/03/CF/CgqgF1xuQCWABssSAAALN6lgqSo035.jpg\",\"IMSI_LIST\":\"test-imsiList\",\"NAME\":\"test-name\",\"SEX\":\"0\",\"AGE\":\"30\",\"ID_CARD\":\"test-idCard\",\"REMARK\":\"test-remark\",\"CREATE_TIME\":\"0\",\"LAST_APPEAR_TIME\":\"0\",\"LAST_APPEAR_SERVICE\":\"test-lastAppearService\",\"FIRST_APPEAR_TIME\":\"0\",\"FIRST_APPEAR_SERVICE\":\"test-firstAppearService\",\"VERSION\":\"test-version\",\"QUALITY\":\"1\"},{\"FACE_ID\":\"test-faceId\",\"IMAGE_ID\":\"40e88e3f-391c-474e-ab09-90f67e016171\",\"FACE_URL\":\"http://rzx168:8877/group1/M00/03/CF/CgqgF1xuQCWABssSAAALN6lgqSo035.jpg\",\"IMSI_LIST\":\"test-imsiList\",\"NAME\":\"test-name\",\"SEX\":\"0\",\"AGE\":\"30\",\"ID_CARD\":\"test-idCard\",\"REMARK\":\"test-remark\",\"CREATE_TIME\":\"0\",\"LAST_APPEAR_TIME\":\"0\",\"LAST_APPEAR_SERVICE\":\"test-lastAppearService\",\"FIRST_APPEAR_TIME\":\"0\",\"FIRST_APPEAR_SERVICE\":\"test-firstAppearService\",\"VERSION\":\"test-version\",\"QUALITY\":\"a\"}]";
+    std::string sTDesKey = "pk$@gtjt";
+    std::string sTDesIv = "thvn#&@@";
+
+    std::string sPadding = "ABCD";
+    sTDesCBCSrc += std::to_string(sTDesCBCSrc.size());
+    sTDesCBCSrc += sPadding;
+
+    size_t outPaddingLen = 0;
+    // 注意要释放申请的内存
+    char *pTDesCBCSrc = PKCS::PKCS7Padding((uint8_t *)sTDesCBCSrc.c_str(), sTDesCBCSrc.size(), 0, DES_BLOCK_SIZE, &outPaddingLen);
+    char * pTdesCBCEnDst = (char *)malloc(outPaddingLen);
+    memset(pTdesCBCEnDst, 0, outPaddingLen);
+
+    int nTdesCBCDEcodeLen = Des::des64_cbc_encrypt((uint8_t *)pTdesCBCEnDst, (uint8_t *)pTDesCBCSrc, outPaddingLen, (uint8_t *)sTDesKey.c_str(), (uint8_t *)sTDesIv.c_str());
+    std::cout << "TEST desCBCEnLen: " << nTdesCBCDEcodeLen << std::endl;
+    std::string sTdesHexEncode = Hex::encodeToString(pTdesCBCEnDst, nTdesCBCDEcodeLen);
+    std::cout << "TEST des64_cbc_encrypt " << sTdesHexEncode.size() << " " << sTdesHexEncode << std::endl;
+
+    // 注意要释放申请的内存
+    char * pTdesCBCDeDst = (char *)malloc(nTdesCBCDEcodeLen);
+    memset(pTdesCBCDeDst, 0, nTdesCBCDEcodeLen);
+    
+    int nTdesCBCDecodeLen = Des::des64_cbc_decrypt((uint8_t *)pTdesCBCDeDst, (uint8_t *)pTdesCBCEnDst, nTdesCBCDEcodeLen, (uint8_t *)sTDesKey.c_str(), (uint8_t *)sTDesIv.c_str());
+    std::cout << "TEST desCBCDecodeLen: " << nTdesCBCDecodeLen << std::endl;
+    std::string sTDesCBCDeDst(pTdesCBCDeDst, nTdesCBCDecodeLen);
+    std::cout << "des64_cbc_decrypt: " << sTDesCBCDeDst.size() << " " << sTDesCBCDeDst << std::endl;
+
+    if(pTDesCBCSrc) {
+        free(pTDesCBCSrc);
+        pTDesCBCSrc = NULL;
+    }
+    if(pTdesCBCEnDst) {
+        free(pTdesCBCEnDst);
+        pTdesCBCEnDst = NULL;
+    }
+    if(pTdesCBCDeDst) {
+        free(pTdesCBCDeDst);
+        pTdesCBCDeDst = NULL;
+    }
+
+    cin.get(); 
 }
+
