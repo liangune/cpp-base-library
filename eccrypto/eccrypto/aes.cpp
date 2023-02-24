@@ -7,83 +7,63 @@
 #include "aes.h"
 #include <string.h>
 #include <ctype.h>
+#include "pkcs.h"
 
-char *Aes::PKCS5Padding(uint8_t* input, int nLen) {
-    int blockCount = 0;
-    blockCount = nLen / AES_BLOCK_SIZE + 1;
-
-    int padding = AES_BLOCK_SIZE - nLen % AES_BLOCK_SIZE;
-
-    char *output = (char *)malloc(AES_BLOCK_SIZE*blockCount);
-    memset(output, padding, AES_BLOCK_SIZE*blockCount);
-    memcpy(output, input, nLen);
-
-    return output;
-}
-
-void Aes::PKCS5UnPadding(uint8_t* input, int *len) {
-    //PKCS5 UNPADDING
-    int unpadding = input[*len - 1];
-    *len = *len - unpadding;
-    input[*len] = '\0';
-}
-
-uint8_t *Aes::rtrim(uint8_t *str)
+uint8_t *Aes::rtrim(uint8_t *str, int *length)
 {
 	if (str == NULL || *str == '\0')
 	{
 		return str;
 	}
  
-	int len = strlen((char *)str);
-	uint8_t *p = str + len - 1;
+	uint8_t *p = str + *length - 1;
 	while (p >= str  && isspace(*p))
 	{
 		*p = '\0';
 		--p;
+        *length--;
 	}
  
 	return str;
 }
 
-int Aes::aes128_ecb_encrypt(uint8_t* input, const uint8_t* key, uint8_t *output)
+size_t Aes::aes128_ecb_encrypt(uint8_t *output, uint8_t* input, size_t inLength, const uint8_t* key)
 {
     if (!input || !key || !output) {
-        return -1;
+        return 0;
     }
  
     AES_KEY aesKey;
     if (AES_set_encrypt_key(key, 128, &aesKey) < 0) {
-        return -1;
+        return 0;
     }
  
-    int len = strlen((char *)input), enLlen = 0;
-
-    while (enLlen < len)
+    size_t enLen = 0;
+    while (enLen < inLength)
     {
         AES_encrypt(input, output, &aesKey);
         input += AES_BLOCK_SIZE;
         output += AES_BLOCK_SIZE;
-        enLlen += AES_BLOCK_SIZE;
+        enLen += AES_BLOCK_SIZE;
     }
  
-    return 0;
+    return enLen;
 }
 
-int Aes::aes128_ecb_decrypt(uint8_t* input, const uint8_t* key, uint8_t *output)
+size_t Aes::aes128_ecb_decrypt(uint8_t *output, uint8_t* input, size_t inLength, const uint8_t* key)
 {
     if (!input || !key || !output) {
-        return -1;
+        return 0;
     }
  
     AES_KEY aesKey;
     if (AES_set_decrypt_key(key, 128, &aesKey) < 0)
     {
-        return -1;
+        return 0;
     }
  
-    int len = strlen((char *)input), enLen = 0;
-    while (enLen < len)
+    size_t enLen = 0;
+    while (enLen < inLength)
     {
         AES_decrypt(input, output, &aesKey);
         input += AES_BLOCK_SIZE;
@@ -91,16 +71,74 @@ int Aes::aes128_ecb_decrypt(uint8_t* input, const uint8_t* key, uint8_t *output)
         enLen += AES_BLOCK_SIZE;
     }
  
-    return 0;
+    return enLen;
 }
 
-int Aes::aes128_cbc_encrypt_padding(uint8_t* output, uint8_t* input, int inLength, const uint8_t* key, const uint8_t* iv)
+size_t Aes::aes128_ecb_encrypt_padding(uint8_t *output, uint8_t* input, size_t inLength, const uint8_t* key)
+{
+    if (!input || !key || !output) {
+        return 0;
+    }
+    
+    size_t len = 0;
+    char *padSrc = PKCS::PKCS5Padding(input, inLength, &len);
+
+    AES_KEY aesKey;
+    if (AES_set_encrypt_key(key, 128, &aesKey) < 0)
+    {
+        return 0;
+    }
+ 
+    size_t enLen = 0;
+    while (enLen < len)
+    {
+        AES_encrypt((uint8_t *)padSrc, output, &aesKey);
+        input += AES_BLOCK_SIZE;
+        output += AES_BLOCK_SIZE;
+        enLen += AES_BLOCK_SIZE;
+    }
+    
+    if(padSrc)
+        free(padSrc);
+
+    return enLen;
+}
+
+size_t Aes::aes128_ecb_decrypt_padding(uint8_t *output, uint8_t* input, size_t inLength, const uint8_t* key)
+{
+    if (!input || !key || !output) {
+        return 0;
+    }
+ 
+    AES_KEY aesKey;
+    if (AES_set_decrypt_key(key, 128, &aesKey) < 0)
+    {
+        return 0;
+    }
+ 
+    size_t enLen = 0;
+    while (enLen < inLength)
+    {
+        AES_decrypt(input, output, &aesKey);
+        input += AES_BLOCK_SIZE;
+        output += AES_BLOCK_SIZE;
+        enLen += AES_BLOCK_SIZE;
+    }
+ 
+    size_t outLen = enLen;
+    PKCS::PKCS5UnPadding(output, &outLen);
+
+    return outLen;
+}
+
+size_t Aes::aes128_cbc_encrypt_padding(uint8_t* output, uint8_t* input, size_t inLength, const uint8_t* key, const uint8_t* iv)
 {
     if (!input || !key || !output) {
         return 0;
     }
 
-    char *padSrc = PKCS5Padding(input, inLength);
+	size_t len = 0;
+    char *padSrc = PKCS::PKCS5Padding(input, inLength, &len);
     
     EVP_CIPHER_CTX *ctx = NULL;
     if(!(ctx = EVP_CIPHER_CTX_new())) {
@@ -112,7 +150,7 @@ int Aes::aes128_cbc_encrypt_padding(uint8_t* output, uint8_t* input, int inLengt
     }
 
     int outLength = 0; 
-    if(1 != EVP_EncryptUpdate(ctx, output, &outLength, (uint8_t *)padSrc, strlen(padSrc))) {   
+    if(1 != EVP_EncryptUpdate(ctx, output, &outLength, (uint8_t *)padSrc, len)) {   
         return 0;
     }
 
@@ -125,7 +163,7 @@ int Aes::aes128_cbc_encrypt_padding(uint8_t* output, uint8_t* input, int inLengt
     return outLength;
 }
 
-int Aes::aes128_cbc_decrypt_padding(uint8_t* output, uint8_t* input, int inLength, const uint8_t* key, const uint8_t* iv)
+size_t Aes::aes128_cbc_decrypt_padding(uint8_t* output, uint8_t* input, size_t inLength, const uint8_t* key, const uint8_t* iv)
 {
     if (!input || !key || !output) {
         return 0;
@@ -151,7 +189,7 @@ int Aes::aes128_cbc_decrypt_padding(uint8_t* output, uint8_t* input, int inLengt
         EVP_CIPHER_CTX_free(ctx);
 
     // 去除空格
-    output = rtrim(output);
+    output = rtrim(output, &outLength);
 
-    return strlen((char *)output);
+    return outLength;
 }

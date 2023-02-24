@@ -16,8 +16,8 @@
  * result. Failure to do so will result in a buffer overrun.
  */
 
-int base64_encode(uint8_t *input, size_t input_length, uint8_t *output);
-int base64_decode(uint8_t *input, size_t outLength, uint8_t *output);
+size_t base64_encode(uint8_t *input, size_t input_length, uint8_t *output);
+size_t base64_decode(uint8_t *input, size_t outLength, uint8_t *output);
 
 class B64
 {
@@ -29,7 +29,7 @@ class B64
      * @param sOutput   编码后的字符串
      * @return          返回编码后字符串的长度
     */
-    static int base64Encode(uint8_t *input, size_t inLength, std::string &sOutput);
+    static size_t base64Encode(uint8_t *input, size_t inLength, std::string &sOutput);
 
     /**
      * @brief           base64解码
@@ -38,7 +38,7 @@ class B64
      * @param sOutput   解码后的字符串
      * @return          解码后的字符串长度
     */
-    static int base64Decode(uint8_t *input, size_t inLength, std::string &sOutput);
+    static size_t base64Decode(uint8_t *input, size_t inLength, std::string &sOutput);
 };
 
 

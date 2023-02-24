@@ -22,9 +22,8 @@ public:
             return '0';
     }
 
-    static int encode(const char *src, char *dst) {
+    static int encode(const char *src, char *dst, size_t length) {
         int j = 0;
-        int length = strlen(src);
         for(int i=0; i <length; i++) 
         {
             char c = (src[i] >> 4) & 0x0F;
@@ -36,14 +35,12 @@ public:
         return length * 2;
     }
 
-    static std::string encodeToString(const char *src)
+    static std::string encodeToString(const char *src, size_t length)
     {
-        int length = strlen(src);
-        //char dst[length];
         char *pszDst = new char[length*2];
         memset(pszDst, 0, length);
-        encode(src, pszDst);
-        std::string strDst = pszDst;
+        encode(src, pszDst, length);
+        std::string strDst(pszDst, length*2);
 
         if(pszDst)
             delete(pszDst);
@@ -62,22 +59,19 @@ public:
         return 0;
     }
     
-    static std::string decodeToString(const char *src)
+    static std::string decodeToString(const char *src, size_t length)
     {
-        int length = strlen(src);
-        //char dst[length];
         char *pszDst = new char[length];
         memset(pszDst, 0, length);
-        decode(src, pszDst);
-        std::string strDst = pszDst;
+        decode(src, pszDst, length);
+        std::string strDst(pszDst, length);
         if(pszDst)
             delete(pszDst);
         
 	    return strDst;
     }
 
-    static int decode(const char *src, char *dst) {
-        int length = strlen(src);
+    static int decode(const char *src, char *dst, size_t length) {
         int i=0, j = 0;
         for (; i < length - 1; j++)
         {

@@ -7,14 +7,8 @@
 #ifndef _SHA1_H_
 #define _SHA1_H_
 
-#ifdef _MSC_VER
 #include "openssl/sha.h"
 #include "openssl/hmac.h"
-#elif defined __GNUC__
-#include "openssl/sha.h"
-#include "openssl/hmac.h"
-#endif
-
 #include <string>
 
 #define SHA256_DIGEST_LENGTH 32

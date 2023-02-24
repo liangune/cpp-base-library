@@ -32,7 +32,7 @@ static const signed char decodeCharacterTable[256] = {
 	-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1
 };
 
-int base64_encode(uint8_t *input, size_t input_length, uint8_t *output)
+size_t base64_encode(uint8_t *input, size_t input_length, uint8_t *output)
 {
 	uint8_t buff1[3];
 	uint8_t buff2[4];
@@ -76,7 +76,7 @@ int base64_encode(uint8_t *input, size_t input_length, uint8_t *output)
 	return output_cnt;
 }
 
-int base64_decode(uint8_t *input, size_t input_length, uint8_t *output)
+size_t base64_decode(uint8_t *input, size_t input_length, uint8_t *output)
 {
 	uint8_t buff1[4];
 	uint8_t buff2[4];
@@ -126,11 +126,11 @@ int base64_decode(uint8_t *input, size_t input_length, uint8_t *output)
 	return output_cnt;
 }
 
-int B64::base64Encode(uint8_t *input, size_t inLength, std::string &sOutput)
+size_t B64::base64Encode(uint8_t *input, size_t inLength, std::string &sOutput)
 {
     char *pszOutput = (char *)malloc(inLength*2+1);
     // memset(pszOutput, 0, inLength*2+1);
-    int outLen = base64_encode(input, inLength, (uint8_t *)pszOutput);
+    size_t outLen = base64_encode(input, inLength, (uint8_t *)pszOutput);
     pszOutput[outLen] = 0;
 
     std::string strOutput(pszOutput, outLen);
@@ -141,11 +141,11 @@ int B64::base64Encode(uint8_t *input, size_t inLength, std::string &sOutput)
     return outLen;
 }
 
-int B64::base64Decode(uint8_t *input, size_t inLength, std::string &sOutput)
+size_t B64::base64Decode(uint8_t *input, size_t inLength, std::string &sOutput)
 {
     char * pszOutput = (char *)malloc(inLength+1);
     // memset(pszOutput, 0, inLength+1);
-    int outLen = base64_decode(input, inLength, (uint8_t *)pszOutput);
+    size_t outLen = base64_decode(input, inLength, (uint8_t *)pszOutput);
     pszOutput[outLen] = 0;
 
     std::string strOutput(pszOutput, outLen);
