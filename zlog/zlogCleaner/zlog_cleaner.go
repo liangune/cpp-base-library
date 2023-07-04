@@ -26,4 +26,20 @@ func GoLogCleaner(path *C.char, interval uint32, reserve uint32, isCompress int3
 	})
 }
 
+//export GoLogCleanerV1
+func GoLogCleanerV1(path *C.char, interval uint32, reserve uint32, isCompress int32, compressMethod int8, compressTime int8) {
+	compress := false
+	if isCompress == 1 {
+		compress = true
+	}
+	NewLogCleaner(InitOption{
+		Path:           C.GoString(path),
+		Interval:       time.Minute * time.Duration(interval),
+		Reserve:        reserve,
+		Compress:       compress,
+		CompressMethod: compressMethod,
+		CompressTime:   compressTime,
+	})
+}
+
 func main() {}

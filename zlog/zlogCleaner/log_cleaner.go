@@ -25,14 +25,20 @@ const (
 )
 
 const (
+	CompressTimeDate = 1 // date
+	CompressTimeHour = 2 // hour
+)
+
+const (
 	compressSuffixGzip                  = ".tar.gz"
 	compressSuffixZip                   = ".zip"
 	logfileSuffix                       = ".log"
 	defaultCompressMethod               = CompressMethodZip
 	defaultCompressFileMode os.FileMode = 0440
+	defaultCompressTime                 = CompressTimeDate
 )
 
-const FileNameSplitLessLength = 3
+const FileNameSplitLessLength = 2
 
 // LogCleaner define the log cleaner options:
 //
@@ -49,15 +55,17 @@ type LogCleaner struct {
 	compressMethod   int8          // 压缩方式
 	symlinks         map[string]struct{}
 	compressFileMode os.FileMode // 归档文件权限
+	compressTime     int8        // 压缩时间周期
 }
 
-// InitOption define the glog cleaner init options for GlogCleaner:
+// InitOption define the glog cleaner init options for LogCleaner:
 //
 //     Path     - Log files will be clean to this directory
 //     Interval - Log files clean scanning interval
 //     Reserve  - Log files reserve time
 //     Compress - Log files check whether compress
 //     CompressMethod - Log files compress method
+//	   CompressTime - Log files compress time period
 type InitOption struct {
 	Path             string
 	Interval         time.Duration
@@ -65,9 +73,15 @@ type InitOption struct {
 	Compress         bool
 	CompressMethod   int8
 	CompressFileMode os.FileMode
+	CompressTime     int8
 }
 
-// NewGlogCleaner create a cleaner in a goroutine and do instantiation GlogCleaner by given
+type compressFile struct {
+	Key   string
+	Files []os.FileInfo
+}
+
+// NewLogCleaner create a cleaner in a goroutine and do instantiation LogCleaner by given
 // init options.
 func NewLogCleaner(option InitOption) *LogCleaner {
 	c := new(LogCleaner)
@@ -77,8 +91,12 @@ func NewLogCleaner(option InitOption) *LogCleaner {
 	c.compress = option.Compress
 	c.compressMethod = option.CompressMethod
 	c.compressFileMode = option.CompressFileMode
+	c.compressTime = option.CompressTime
 	if c.compressMethod <= 0 {
 		c.compressMethod = defaultCompressMethod
+	}
+	if c.compressTime <= 0 {
+		c.compressTime = defaultCompressTime
 	}
 	c.symlinks = make(map[string]struct{}, numSeverity)
 
@@ -130,9 +148,19 @@ func (c *LogCleaner) check(files []os.FileInfo) {
 		}
 	}
 	var remove []os.FileInfo
-	mapCompress := map[string][]os.FileInfo{}
+	mapCompress := map[string][]compressFile{}
 	for _, f := range files {
 		if _, ok := excludes[f.Name()]; ok {
+			continue
+		}
+		if f.IsDir() {
+			fileDate := f.Name()
+			if c.isRemove(fileDate) {
+				err := os.RemoveAll(filepath.Join(c.path, f.Name()))
+				if err != nil {
+					fmt.Printf("%v \n", err)
+				}
+			}
 			continue
 		}
 		str := strings.Split(f.Name(), `.`)
@@ -141,27 +169,56 @@ func (c *LogCleaner) check(files []os.FileInfo) {
 		if len(str) < FileNameSplitLessLength {
 			continue
 		}
-		var fileTime string
+		var fileDate, fileHour string
 		if suffixGzip || suffixZip {
-			fileTime = str[0]
+			fileDate = str[0]
 		} else {
-			fileTime = f.ModTime().Format("2006-01-02")
+			fileDate = f.ModTime().Format("2006-01-02")
+			fileHour = f.ModTime().Format("2006-01-02-15")
 		}
-		if c.isRemove(fileTime) {
+		if c.isRemove(fileDate) {
 			remove = append(remove, f)
+			continue
+		}
+		if suffixGzip || suffixZip {
 			continue
 		}
 
 		suffix := strings.HasSuffix(f.Name(), logfileSuffix)
+		var compressKey string
+		if c.compressTime == CompressTimeDate {
+			compressKey = fileDate
+		} else {
+			compressKey = fileHour
+		}
 		if suffix {
-			if c.isCompress(f, fileTime) {
-				if fslice, ok := mapCompress[fileTime]; ok {
-					fslice = append(fslice, f)
-					mapCompress[fileTime] = fslice
+			if c.isCompress(f, fileDate) {
+				if fslice, ok := mapCompress[fileDate]; ok {
+					isExist := false
+					for i, _ := range fslice {
+						if fslice[i].Key == compressKey {
+							fslice[i].Files = append(fslice[i].Files, f)
+							isExist = true
+						}
+					}
+					if !isExist {
+						cf := compressFile{
+							Key:   compressKey,
+							Files: make([]os.FileInfo, 0),
+						}
+						cf.Files = append(cf.Files, f)
+						fslice = append(fslice, cf)
+						mapCompress[fileDate] = fslice
+					}
 				} else {
-					fslice = make([]os.FileInfo, 0)
-					fslice = append(fslice, f)
-					mapCompress[fileTime] = fslice
+					cf := compressFile{
+						Key:   compressKey,
+						Files: make([]os.FileInfo, 0),
+					}
+					cf.Files = append(cf.Files, f)
+					fslice := make([]compressFile, 0)
+					fslice = append(fslice, cf)
+					mapCompress[fileDate] = fslice
 				}
 			}
 		}
@@ -170,21 +227,53 @@ func (c *LogCleaner) check(files []os.FileInfo) {
 	for _, f := range remove {
 		err := c.remove(f)
 		if err != nil {
-			fmt.Printf("failed to drop log file, %v \n", err)
+			fmt.Printf("failed to drop log file %v \n", err)
 		}
 	}
+
+	c.compressFile(mapCompress)
+}
+
+func (c *LogCleaner) compressFile(mapCompress map[string][]compressFile) {
 	for k, v := range mapCompress {
-		if c.compressMethod == CompressMethodGzip {
-			dest := filepath.Join(c.path, k+logfileSuffix+compressSuffixGzip)
-			err := c.compressFilesGzip(v, dest)
-			if err != nil {
-				fmt.Printf("failed to compress log file, %v \n", err)
+		if c.compressTime == CompressTimeDate {
+			for _, cf := range v {
+				if c.compressMethod == CompressMethodGzip {
+					dest := filepath.Join(c.path, k+logfileSuffix+compressSuffixGzip)
+					err := c.compressFilesGzip(cf.Files, dest)
+					if err != nil {
+						fmt.Printf("failed to compress log file %v \n", err)
+					}
+				} else if c.compressMethod == CompressMethodZip {
+					dest := filepath.Join(c.path, k+logfileSuffix+compressSuffixZip)
+					err := c.compressFilesZip(cf.Files, dest)
+					if err != nil {
+						fmt.Printf("failed to compress log file %v \n", err)
+					}
+				}
 			}
-		} else if c.compressMethod == CompressMethodZip {
-			dest := filepath.Join(c.path, k+logfileSuffix+compressSuffixZip)
-			err := c.compressFilesZip(v, dest)
+		} else {
+			dir := filepath.Join(c.path, k)
+			err := os.MkdirAll(dir, os.ModePerm|os.ModeDir)
 			if err != nil {
-				fmt.Printf("failed to compress log file, %v \n", err)
+				fmt.Printf("failed to mkdir %s, %v \n", k, err)
+				return
+			}
+
+			for _, cf := range v {
+				if c.compressMethod == CompressMethodGzip {
+					dest := filepath.Join(c.path, k, cf.Key+logfileSuffix+compressSuffixGzip)
+					err := c.compressFilesGzip(cf.Files, dest)
+					if err != nil {
+						fmt.Printf("failed to compress log file %v \n", err)
+					}
+				} else if c.compressMethod == CompressMethodZip {
+					dest := filepath.Join(c.path, k, cf.Key+logfileSuffix+compressSuffixZip)
+					err := c.compressFilesZip(cf.Files, dest)
+					if err != nil {
+						fmt.Printf("failed to compress log file %v \n", err)
+					}
+				}
 			}
 		}
 	}
@@ -246,7 +335,9 @@ func (c *LogCleaner) compressFileGzip(file *os.File, prefix string, tw *tar.Writ
 	}
 
 	header, err := tar.FileInfoHeader(info, "")
-	header.Name = prefix + "/" + header.Name
+	if prefix != "" {
+		header.Name = prefix + "/" + header.Name
+	}
 	if err != nil {
 		return err
 	}
@@ -256,7 +347,6 @@ func (c *LogCleaner) compressFileGzip(file *os.File, prefix string, tw *tar.Writ
 	}
 
 	_, err = io.Copy(tw, file)
-	file.Close()
 	if err != nil {
 		return err
 	}
@@ -270,7 +360,9 @@ func (c *LogCleaner) compressFileZip(file *os.File, prefix string, zw *zip.Write
 	}
 
 	header, err := zip.FileInfoHeader(info)
-	header.Name = prefix + "/" + header.Name
+	if prefix != "" {
+		header.Name = prefix + "/" + header.Name
+	}
 	header.Method = zip.Deflate
 	if err != nil {
 		return err
@@ -280,7 +372,6 @@ func (c *LogCleaner) compressFileZip(file *os.File, prefix string, zw *zip.Write
 		return err
 	}
 	_, err = io.Copy(writer, file)
-	file.Close()
 	if err != nil {
 		return err
 	}
@@ -294,31 +385,35 @@ func (c *LogCleaner) compressFileZip(file *os.File, prefix string, zw *zip.Write
 	@dest 压缩文件存放地址
 */
 func (c *LogCleaner) compressFilesGzip(files []os.FileInfo, dest string) error {
-	gzfile, err := c.Create(dest)
+	gzFile, err := c.Create(dest)
 	if err != nil {
 		return fmt.Errorf("failed to open compressed log file: %v", err)
 	}
-	defer gzfile.Close()
+	defer gzFile.Close()
 
-	gw := gzip.NewWriter(gzfile)
-	defer gw.Close()
+	gzWriter := gzip.NewWriter(gzFile)
+	defer gzWriter.Close()
 
-	tw := tar.NewWriter(gw)
-	defer tw.Close()
+	tarWriter := tar.NewWriter(gzWriter)
+	defer tarWriter.Close()
 
-	for _, fileinfo := range files {
-		fn := filepath.Join(c.path, fileinfo.Name())
+	for _, fileInfo := range files {
+		fn := filepath.Join(c.path, fileInfo.Name())
 		file, err := os.Open(fn)
 		if err != nil {
-			return err
+			fmt.Printf("%v \n", err)
+			continue
 		}
-		err = c.compressFileGzip(file, "", tw)
+		err = c.compressFileGzip(file, "", tarWriter)
 		if err != nil {
-			return err
+			file.Close()
+			fmt.Printf("%v \n", err)
+			continue
 		}
-
+		file.Close()
 		if err := os.Remove(fn); err != nil {
-			return err
+			fmt.Printf("%v \n", err)
+			continue
 		}
 	}
 	return nil
@@ -331,22 +426,26 @@ func (c *LogCleaner) compressFilesZip(files []os.FileInfo, dest string) error {
 	}
 	defer zipfile.Close()
 
-	w := zip.NewWriter(zipfile)
-	defer w.Close()
+	zipWriter := zip.NewWriter(zipfile)
+	defer zipWriter.Close()
 
-	for _, fileinfo := range files {
-		fn := filepath.Join(c.path, fileinfo.Name())
+	for _, fileInfo := range files {
+		fn := filepath.Join(c.path, fileInfo.Name())
 		file, err := os.Open(fn)
 		if err != nil {
-			return err
+			fmt.Printf("%v \n", err)
+			continue
 		}
-		err = c.compressFileZip(file, "", w)
+		err = c.compressFileZip(file, "", zipWriter)
 		if err != nil {
-			return err
+			file.Close()
+			fmt.Printf("%v \n", err)
+			continue
 		}
-
+		file.Close()
 		if err := os.Remove(fn); err != nil {
-			return err
+			fmt.Printf("%v \n", err)
+			continue
 		}
 	}
 	return nil
